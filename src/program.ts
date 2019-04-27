@@ -1,3 +1,4 @@
+import { Model } from "./shapes";
 
 export type ProgramProps = 
   {program: WebGLProgram}
@@ -8,6 +9,8 @@ export interface AttributeProps {
   location: GLint;
   buffer: WebGLBuffer;
   size: GLint;
+  numberOfVertices: number;
+  drawMode: GLenum,
 };
 
 export interface UniformProps {
@@ -20,17 +23,19 @@ type ProgramUniform = 'uModelViewMatrix';
 /**
  * Should be called one outside the render loop
  */
-export function prepareAttribute(gl: WebGLRenderingContext, props: ProgramProps, attr: ProgramAttribute, values: number[]) {
+export function prepareAttribute(gl: WebGLRenderingContext, props: ProgramProps, attr: ProgramAttribute, model: Model) {
   const location = gl.getAttribLocation(props.program, attr);
   const buffer = gl.createBuffer();
 
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(values), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(model.vertices), gl.STATIC_DRAW);
 
   props[attr] = {
     buffer,
     location,
-    size: 2
+    size: 2,
+    numberOfVertices: model.vertices.length / 2,
+    drawMode: model.drawMode,
   }
 }
 

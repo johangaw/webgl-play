@@ -1,5 +1,6 @@
 import { createProgram, prepareAttribute, ProgramProps, enableAttribute, prepareUniform } from "./program";
 import { m3 } from "./m3";
+import { getTriangle, getCircle } from "./shapes";
 
 let gl: WebGLRenderingContext;
 let programProps: ProgramProps;
@@ -23,12 +24,8 @@ function main() {
   gl.clear(gl.COLOR_BUFFER_BIT);
 
   programProps = createProgram(gl);
-  const vertices = [
-    0, 0,
-    0, 100,
-    68, 0,
-  ]
-  prepareAttribute(gl, programProps, 'aPosition', vertices);
+  // prepareAttribute(gl, programProps, 'aPosition', getTriangle());
+  prepareAttribute(gl, programProps, 'aPosition', getCircle(50, 50));
   prepareUniform(gl, programProps, 'uModelViewMatrix');
 
   drawScene(gl, programProps, 0);
@@ -57,22 +54,22 @@ function drawScene(gl: WebGLRenderingContext, progProps: ProgramProps, angleInRa
   // TRS matrix (model to world matrix)
   modelViewMatrix = m3.translate(modelViewMatrix, 200, 200);
   modelViewMatrix = m3.rotate(modelViewMatrix, angleInRadians);
-  modelViewMatrix = m3.scale(modelViewMatrix, 4, 1);
+  modelViewMatrix = m3.scale(modelViewMatrix, 1, 1);
 
   // Move origin within model
-  modelViewMatrix = m3.translate(modelViewMatrix, -68/3, -100/3);
+  // modelViewMatrix = m3.translate(modelViewMatrix, -68/3, -100/3);
   gl.uniformMatrix3fv(progProps.uModelViewMatrix.location, false, modelViewMatrix);
 
   {
     const offset = 0;
-    const vertexCount = 3;
-    gl.drawArrays(gl.TRIANGLES, offset, vertexCount);
+    const vertexCount = progProps.aPosition.numberOfVertices;
+    gl.drawArrays(progProps.aPosition.drawMode, offset, vertexCount);
   }
 
-  window.requestAnimationFrame((time: number) => {
-    const currentAngle = 2 * Math.PI * time / 5000;   // 5000ms => 2s => 1 revolation every 2 sec
-    drawScene(gl, progProps, currentAngle);
-  })
+  // window.requestAnimationFrame((time: number) => {
+  //   const currentAngle = 2 * Math.PI * time / 5000;   // 5000ms => 2s => 1 revolation every 2 sec
+  //   drawScene(gl, progProps, currentAngle);
+  // })
 }
 
 main();
