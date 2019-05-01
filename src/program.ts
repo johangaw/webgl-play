@@ -1,67 +1,33 @@
-import { Model } from "./shapes";
+export interface ProgramInfo {
+  program: WebGLProgram,
+  aPosition: {
+    location: GLint;
+  }
+  uModelViewMatrix: {
+    location: WebGLUniformLocation;  
+  }
+}
 
-export type ProgramProps = 
-  {program: WebGLProgram}
-  & Partial<Record<ProgramAttribute, AttributeProps>>
-  & Partial<Record<ProgramUniform, UniformProps>>
-
-export interface AttributeProps {
+export interface AttributeInfo {
   location: GLint;
   buffer: WebGLBuffer;
-  size: GLint;
-  numberOfVertices: number;
-  drawMode: GLenum,
 };
 
 export interface UniformProps {
   location: WebGLUniformLocation;
 }
 
-type ProgramAttribute = 'aPosition';
-type ProgramUniform = 'uModelViewMatrix';
-
-/**
- * Should be called one outside the render loop
- */
-export function prepareAttribute(gl: WebGLRenderingContext, props: ProgramProps, attr: ProgramAttribute, model: Model) {
-  const location = gl.getAttribLocation(props.program, attr);
+export function loadDataOntoGPU(gl: WebGLRenderingContext, bufferData: number[]): WebGLBuffer {
   const buffer = gl.createBuffer();
 
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(model.vertices), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(bufferData), gl.STATIC_DRAW);
 
-  props[attr] = {
-    buffer,
-    location,
-    size: 2,
-    numberOfVertices: model.vertices.length / 2,
-    drawMode: model.drawMode,
-  }
-}
-
-export function prepareUniform(gl: WebGLRenderingContext, props: ProgramProps, attr: ProgramUniform) {
-  const location = gl.getUniformLocation(props.program, attr);
-  props[attr] = {
-    location,
-  }
-}
-
-export function enableAttribute(gl: WebGLRenderingContext, attr: AttributeProps) {
-  gl.bindBuffer(gl.ARRAY_BUFFER,  attr.buffer);
-  gl.enableVertexAttribArray(attr.location);
-
-  // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
-  var size = attr.size;  // number of components per iteration
-  var type = gl.FLOAT;   // the data is 32bit floats
-  var normalize = false; // don't normalize the data
-  var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
-  var offset = 0;        // start at the beginning of the buffer
-
-  gl.vertexAttribPointer(attr.location, size, type, normalize, stride, offset)
+  return buffer;
 }
 
 
-export function createProgram(gl: WebGLRenderingContext): ProgramProps {
+export function createProgram(gl: WebGLRenderingContext): ProgramInfo {
   const vertexShader = compileShader(gl, gl.VERTEX_SHADER, getVertexShaderSource());
   const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, getFragmentShaderSource());
 
@@ -76,9 +42,30 @@ export function createProgram(gl: WebGLRenderingContext): ProgramProps {
     alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
     return null;
   }
+
   return {
     program: shaderProgram,
+    aPosition: {
+      location: gl.getAttribLocation(shaderProgram, 'aPosition')
+    },
+    uModelViewMatrix: {
+      location: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix')
+    }
   }
+}
+
+export function enableAttribute(gl: WebGLRenderingContext, location: GLint, buffer: WebGLBuffer, itemsPerIteration: number) {
+  gl.bindBuffer(gl.ARRAY_BUFFER,  buffer);
+  gl.enableVertexAttribArray(location);
+
+  // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+  var size = itemsPerIteration;  // number of components per iteration
+  var type = gl.FLOAT;           // the data is 32bit floats
+  var normalize = false;         // don't normalize the data
+  var stride = 0;                // 0 = move forward size * sizeof(type) each iteration to get the next position
+  var offset = 0;                // start at the beginning of the buffer
+
+  gl.vertexAttribPointer(location, size, type, normalize, stride, offset)
 }
 
 //

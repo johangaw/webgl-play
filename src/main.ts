@@ -1,9 +1,14 @@
-import { createProgram, prepareAttribute, ProgramProps, enableAttribute, prepareUniform } from "./program";
 import { m3 } from "./m3";
-import { getTriangle, getCircle } from "./shapes";
+import { createProgram, enableAttribute, ProgramInfo, loadDataOntoGPU } from "./program";
+import { getCircle, Model } from "./shapes";
 
 let gl: WebGLRenderingContext;
-let programProps: ProgramProps;
+let programInfo: ProgramInfo;
+interface StuffToDraw {
+  programInfo: ProgramInfo;
+  model: Model;
+  buffer: WebGLBuffer;
+}
 
 function main() {
   const canvas = document.createElement('canvas');
@@ -23,15 +28,30 @@ function main() {
   // Clear the color buffer with specified clear color
   gl.clear(gl.COLOR_BUFFER_BIT);
 
-  programProps = createProgram(gl);
-  // prepareAttribute(gl, programProps, 'aPosition', getTriangle());
-  prepareAttribute(gl, programProps, 'aPosition', getCircle(50, 50));
-  prepareUniform(gl, programProps, 'uModelViewMatrix');
+  programInfo = createProgram(gl);
 
-  drawScene(gl, programProps, 0);
+  const c1 = getCircle(70);
+  const c2 = getCircle(40);
+
+  c2.matrix = m3.translation(100, 100);
+
+  const stuffsToDraw: StuffToDraw[] = [
+    {
+      programInfo: programInfo,
+      model: c1,
+      buffer: loadDataOntoGPU(gl, c1.vertices),
+    },
+    {
+      programInfo: programInfo,
+      model: c2,
+      buffer: loadDataOntoGPU(gl, c2.vertices),
+    },
+  ]
+  
+  drawScene(gl, stuffsToDraw, 0);
 }
 
-function drawScene(gl: WebGLRenderingContext, progProps: ProgramProps, angleInRadians) {
+function drawScene(gl: WebGLRenderingContext, stuffsToDraw: StuffToDraw[], angleInRadians: number) {
   // clear canvas
 
   gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
@@ -45,31 +65,34 @@ function drawScene(gl: WebGLRenderingContext, progProps: ProgramProps, angleInRa
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
   // Tell it to use our program (pair of shaders)
-  gl.useProgram(progProps.program);
-  enableAttribute(gl, progProps.aPosition)
 
-
-  let modelViewMatrix = m3.projection(gl.canvas.width, gl.canvas.height);
+  stuffsToDraw.forEach(({programInfo, model, buffer}) => {
+    gl.useProgram(programInfo.program);
+    enableAttribute(gl, programInfo.aPosition.location, buffer, model.itemsPerVertex)
   
-  // TRS matrix (model to world matrix)
-  modelViewMatrix = m3.translate(modelViewMatrix, 200, 200);
-  modelViewMatrix = m3.rotate(modelViewMatrix, angleInRadians);
-  modelViewMatrix = m3.scale(modelViewMatrix, 1, 1);
+    let modelViewMatrix = m3.projection(gl.canvas.width, gl.canvas.height);
+  
+    // TRS matrix (model to world matrix)
+    modelViewMatrix = m3.translate(modelViewMatrix, 200, 200);
+    modelViewMatrix = m3.rotate(modelViewMatrix, angleInRadians);
+    // modelViewMatrix = m3.scale(modelViewMatrix, 1, 1);
 
-  // Move origin within model
-  // modelViewMatrix = m3.translate(modelViewMatrix, -68/3, -100/3);
-  gl.uniformMatrix3fv(progProps.uModelViewMatrix.location, false, modelViewMatrix);
+    modelViewMatrix = m3.multiply(modelViewMatrix, model.matrix);
+    
+  
+    gl.uniformMatrix3fv(programInfo.uModelViewMatrix.location, false, modelViewMatrix);
+  
+    {
+      const offset = 0;
+      const vertexCount = model.vertices.length / model.itemsPerVertex;
+      gl.drawArrays(model.drawMode, offset, vertexCount);
+    }
+  })
 
-  {
-    const offset = 0;
-    const vertexCount = progProps.aPosition.numberOfVertices;
-    gl.drawArrays(progProps.aPosition.drawMode, offset, vertexCount);
-  }
-
-  // window.requestAnimationFrame((time: number) => {
-  //   const currentAngle = 2 * Math.PI * time / 5000;   // 5000ms => 2s => 1 revolation every 2 sec
-  //   drawScene(gl, progProps, currentAngle);
-  // })
+  window.requestAnimationFrame((time: number) => {
+    const currentAngle = 2 * Math.PI * time / 5000;   // 5000ms => 2s => 1 revolation every 2 sec
+    drawScene(gl, stuffsToDraw, currentAngle);
+  })
 }
 
 main();
